@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # Создаем отдельные сети для sol1 и sol2
+      - name: Create networks
+        run: |
+          docker network create sol1-net || true
+          docker network create sol2-net || true
+
+      - name: Build participant images
+        run: |
+          docker build -t sol1 solution
+          docker build -t sol2 solution
+
+      - name: Add tests
+        uses: central-university-scholarship/shannon-2025-private-tests@latest
+
+      - name: Build tester image
+        run: docker build -t tester tester
+
+      - name: Start sol1 container on sol1-net
+        run: |
+          docker run -d --name sol1 --network sol1-net sol1
+
+      - name: Start sol2 container on sol2-net
+        run: |
+          docker run -d --name sol2 --network sol2-net sol2
+
+      - name: Start tester container on sol1-net
+        run: |
+          docker run -d \
+            --name tester \
+            --network sol1-net \
+            -v ${{ github.workspace }}/solution:/app/tasks \
+            tester
+
+      - name: Connect tester to sol2-net
+        run: docker network connect sol2-net tester
+
+      - name: Wait for tester to finish
+        run: docker wait tester
+
+      - name: Stop participant containers
+        run: |
+          docker stop sol1 || true
+          docker stop sol2 || true
+
+      - name: Get tester logs
+        run: |
+          mkdir -p logs
+          docker logs tester &> logs/tester.txt
+
+      - name: Archive tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: shannon-2025-private-tests-${{ github.REPOSITORY_ID }}
+          path: ./logs/tester.txt
+          if-no-files-found: error
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker rm -f tester sol1 sol2 || true
+          docker network rm sol1-net sol2-net || true

@@ -1,0 +1,111 @@
+openapi: 3.0.0
+info:
+  title: Text ↔ WAV Encode/Decode API
+  version: 1.0.0
+  description: |
+    Cервис, кодирующий текст в WAV и декодирующий его обратно.
+    
+    Формат аудио: 44100 Hz, 16-bit PCM, mono.
+
+paths:
+  /encode:
+    post:
+      summary: Encode text to WAV (base64)
+      description: Преобразует текстовую строку в WAV-аудио (44.1 kHz / 16-bit / mono).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncodeRequest'
+            examples:
+              simple:
+                summary: Пример текста
+                value:
+                  text: "12345678"
+      responses:
+        '200':
+          description: Успешно закодировано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EncodeResponseBase64'
+              examples:
+                base64:
+                  summary: Base64 WAV
+                  value:
+                    data: "UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAA..."
+  /decode:
+    post:
+      summary: Decode WAV to text
+      description: Принимает WAV-аудио и возвращает декодированный текст.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecodeRequestBase64'
+            examples:
+              base64:
+                summary: Base64 WAV
+                value:
+                  data: "UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAA..."
+      responses:
+        '200':
+          description: Успешно декодировано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecodeResponse'
+              examples:
+                text:
+                  summary: Результат
+                  value:
+                    text: "12345678"
+  /ping:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                example: ok
+
+components:
+  schemas:
+    EncodeRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          description: Строка для кодирования в звук
+      required:
+        - text
+
+    EncodeResponseBase64:
+      type: object
+      properties:
+        data:
+          type: string
+          format: byte
+          description: Base64-кодированное содержимое WAV-файла (44.1 kHz / 16-bit / mono)
+
+    DecodeRequestBase64:
+      type: object
+      properties:
+        data:
+          type: string
+          format: byte
+          description: Base64 WAV для декодирования
+      required:
+        - data
+
+    DecodeResponse:
+      type: object
+      properties:
+        text:
+          type: string
+          description: Декодированный текст
